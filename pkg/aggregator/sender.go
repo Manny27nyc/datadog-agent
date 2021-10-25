@@ -122,8 +122,8 @@ func newCheckSender(id check.ID, defaultHostname string, smsOut chan<- senderMet
 // If no error is returned here, DestroySender must be called with the same ID
 // once the sender is not used anymore
 func GetSender(id check.ID) (Sender, error) {
-	if aggregatorInstance == nil {
-		return nil, errors.New("Aggregator was not initialized")
+	if demultiplexerInstance == nil {
+		return nil, errors.New("Demultiplexer was not initialized")
 	}
 	sender, err := senderPool.getSender(id)
 	if err != nil {
@@ -142,20 +142,21 @@ func DestroySender(id check.ID) {
 // SetSender returns the passed sender with the passed ID.
 // This is largely for testing purposes
 func SetSender(sender Sender, id check.ID) error {
-	if aggregatorInstance == nil {
-		return errors.New("Aggregator was not initialized")
+	if demultiplexerInstance == nil {
+		return errors.New("Demultiplexer was not initialized")
 	}
 	return senderPool.setSender(sender, id)
 }
 
 // GetDefaultSender returns the default sender
 func GetDefaultSender() (Sender, error) {
-	if aggregatorInstance == nil {
-		return nil, errors.New("Aggregator was not initialized")
+	if demultiplexerInstance == nil {
+		return nil, errors.New("Demultiplexer was not initialized")
 	}
 
 	senderInit.Do(func() {
-		var defaultCheckID check.ID                       // the default value is the zero value
+		var defaultCheckID check.ID // the default value is the zero value
+		aggregatorInstance := demultiplexerInstance.Aggregator()
 		aggregatorInstance.registerSender(defaultCheckID) //nolint:errcheck
 		senderInstance = newCheckSender(defaultCheckID, aggregatorInstance.hostname, aggregatorInstance.checkMetricIn, aggregatorInstance.serviceCheckIn, aggregatorInstance.eventIn, aggregatorInstance.checkHistogramBucketIn, aggregatorInstance.orchestratorMetadataIn, aggregatorInstance.eventPlatformIn)
 	})
@@ -429,6 +430,7 @@ func (sp *checkSenderPool) mkSender(id check.ID) (Sender, error) {
 	sp.m.Lock()
 	defer sp.m.Unlock()
 
+	aggregatorInstance := demultiplexerInstance.Aggregator()
 	err := aggregatorInstance.registerSender(id)
 	sender := newCheckSender(id, aggregatorInstance.hostname, aggregatorInstance.checkMetricIn, aggregatorInstance.serviceCheckIn, aggregatorInstance.eventIn, aggregatorInstance.checkHistogramBucketIn, aggregatorInstance.orchestratorMetadataIn, aggregatorInstance.eventPlatformIn)
 	sp.senders[id] = sender
@@ -439,6 +441,7 @@ func (sp *checkSenderPool) setSender(sender Sender, id check.ID) error {
 	sp.m.Lock()
 	defer sp.m.Unlock()
 
+	aggregatorInstance := demultiplexerInstance.Aggregator()
 	if _, ok := sp.senders[id]; ok {
 		aggregatorInstance.deregisterSender(id)
 	}
@@ -452,6 +455,7 @@ func (sp *checkSenderPool) removeSender(id check.ID) {
 	sp.m.Lock()
 	defer sp.m.Unlock()
 
+	aggregatorInstance := demultiplexerInstance.Aggregator()
 	delete(sp.senders, id)
 	aggregatorInstance.deregisterSender(id)
 }

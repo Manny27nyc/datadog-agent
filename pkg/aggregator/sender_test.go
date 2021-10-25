@@ -23,19 +23,21 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/metrics"
 )
 
-func resetAggregator() {
-	if aggregatorInstance != nil {
-		aggregatorInstance.stopChan <- struct{}{}
+func resetTests(hostname string) *AgentDemultiplexer {
+	if demultiplexerInstance != nil {
+		demultiplexerInstance.Stop()
+		demultiplexerInstance = nil
 	}
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), hostname)
+	go demux.Run()
 	recurrentSeries = metrics.Series{}
-	aggregatorInstance = nil
-	aggregatorInit = sync.Once{}
 	senderInstance = nil
 	senderInit = sync.Once{}
 	senderPool = &checkSenderPool{
 		senders: make(map[check.ID]Sender),
 	}
 	tagsetTlm.reset()
+	return demux
 }
 
 type senderWithChans struct {
@@ -60,8 +62,8 @@ func initSender(id check.ID, defaultHostname string) (s senderWithChans) {
 }
 
 func TestGetDefaultSenderReturnsSameSender(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "")
+	aggregatorInstance := demux.Aggregator()
 
 	s, err := GetDefaultSender()
 	assert.Nil(t, err)
@@ -76,8 +78,8 @@ func TestGetDefaultSenderReturnsSameSender(t *testing.T) {
 }
 
 func TestGetSenderWithDifferentIDsReturnsDifferentCheckSamplers(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "")
+	aggregatorInstance := demux.Aggregator()
 
 	s, err := GetSender(checkID1)
 	assert.Nil(t, err)
@@ -99,8 +101,8 @@ func TestGetSenderWithDifferentIDsReturnsDifferentCheckSamplers(t *testing.T) {
 }
 
 func TestGetSenderWithSameIDsReturnsSameSender(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "")
+	aggregatorInstance := demux.Aggregator()
 
 	sender1, err := GetSender(checkID1)
 	assert.Nil(t, err)
@@ -116,8 +118,8 @@ func TestGetSenderWithSameIDsReturnsSameSender(t *testing.T) {
 }
 
 func TestDestroySender(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "")
+	aggregatorInstance := demux.Aggregator()
 
 	_, err := GetSender(checkID1)
 	assert.Nil(t, err)
@@ -132,8 +134,7 @@ func TestDestroySender(t *testing.T) {
 }
 
 func TestGetAndSetSender(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "")
 
 	senderMetricSampleChan := make(chan senderMetricSample, 10)
 	serviceCheckChan := make(chan metrics.ServiceCheck, 10)
@@ -152,8 +153,7 @@ func TestGetAndSetSender(t *testing.T) {
 }
 
 func TestGetSenderDefaultHostname(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	demux := InitAgentDemultiplexer(DefaultDemultiplexerOptions(nil), "testhostname")
 
 	sender, err := GetSender(checkID1)
 	require.NoError(t, err)
@@ -166,8 +166,7 @@ func TestGetSenderDefaultHostname(t *testing.T) {
 }
 
 func TestGetSenderServiceTagMetrics(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 	checkTags := []string{"check:tag1", "check:tag2"}
@@ -189,8 +188,7 @@ func TestGetSenderServiceTagMetrics(t *testing.T) {
 }
 
 func TestGetSenderServiceTagServiceCheck(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 	checkTags := []string{"check:tag1", "check:tag2"}
@@ -212,8 +210,7 @@ func TestGetSenderServiceTagServiceCheck(t *testing.T) {
 }
 
 func TestGetSenderServiceTagEvent(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 	checkTags := []string{"check:tag1", "check:tag2"}
@@ -243,8 +240,7 @@ func TestGetSenderServiceTagEvent(t *testing.T) {
 }
 
 func TestGetSenderAddCheckCustomTagsMetrics(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 	// no custom tags
@@ -275,8 +271,7 @@ func TestGetSenderAddCheckCustomTagsMetrics(t *testing.T) {
 }
 
 func TestGetSenderAddCheckCustomTagsService(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 
@@ -308,8 +303,7 @@ func TestGetSenderAddCheckCustomTagsService(t *testing.T) {
 }
 
 func TestGetSenderAddCheckCustomTagsEvent(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 
@@ -352,8 +346,7 @@ func TestGetSenderAddCheckCustomTagsEvent(t *testing.T) {
 }
 
 func TestGetSenderAddCheckCustomTagsHistogramBucket(t *testing.T) {
-	resetAggregator()
-	InitAggregator(nil, nil, "testhostname")
+	resetTests("testhostname")
 
 	s := initSender(checkID1, "")
 

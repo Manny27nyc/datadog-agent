@@ -34,16 +34,16 @@ var checkID1 check.ID = "1"
 var checkID2 check.ID = "2"
 
 func TestRegisterCheckSampler(t *testing.T) {
-	resetAggregator()
+	resetTests("")
+	agg := demultiplexerInstance.Aggregator()
 
-	agg := InitAggregator(nil, nil, "")
 	err := agg.registerSender(checkID1)
 	assert.Nil(t, err)
-	assert.Len(t, aggregatorInstance.checkSamplers, 1)
+	assert.Len(t, agg.checkSamplers, 1)
 
 	err = agg.registerSender(checkID2)
 	assert.Nil(t, err)
-	assert.Len(t, aggregatorInstance.checkSamplers, 2)
+	assert.Len(t, agg.checkSamplers, 2)
 
 	// Already registered sender => error
 	err = agg.registerSender(checkID2)
@@ -51,15 +51,15 @@ func TestRegisterCheckSampler(t *testing.T) {
 }
 
 func TestDeregisterCheckSampler(t *testing.T) {
-	resetAggregator()
+	resetTests("")
+	agg := demultiplexerInstance.Aggregator()
 
-	agg := InitAggregator(nil, nil, "")
 	agg.registerSender(checkID1)
 	agg.registerSender(checkID2)
-	assert.Len(t, aggregatorInstance.checkSamplers, 2)
+	assert.Len(t, agg.checkSamplers, 2)
 
 	agg.deregisterSender(checkID1)
-	require.Len(t, aggregatorInstance.checkSamplers, 1)
+	require.Len(t, agg.checkSamplers, 1)
 	_, ok := agg.checkSamplers[checkID1]
 	assert.False(t, ok)
 	_, ok = agg.checkSamplers[checkID2]
@@ -67,8 +67,8 @@ func TestDeregisterCheckSampler(t *testing.T) {
 }
 
 func TestAddServiceCheckDefaultValues(t *testing.T) {
-	resetAggregator()
-	agg := InitAggregator(nil, nil, "resolved-hostname")
+	resetTests("resolved-hostname")
+	agg := demultiplexerInstance.Aggregator()
 
 	agg.addServiceCheck(metrics.ServiceCheck{
 		// leave Host and Ts fields blank
@@ -96,8 +96,8 @@ func TestAddServiceCheckDefaultValues(t *testing.T) {
 }
 
 func TestAddEventDefaultValues(t *testing.T) {
-	resetAggregator()
-	agg := InitAggregator(nil, nil, "resolved-hostname")
+	resetTests("resolved-hostname")
+	agg := demultiplexerInstance.Aggregator()
 
 	agg.addEvent(metrics.Event{
 		// only populate required fields
@@ -142,8 +142,9 @@ func TestAddEventDefaultValues(t *testing.T) {
 }
 
 func TestSetHostname(t *testing.T) {
-	resetAggregator()
-	agg := InitAggregator(nil, nil, "hostname")
+	resetTests("hostname")
+	agg := demultiplexerInstance.Aggregator()
+
 	assert.Equal(t, "hostname", agg.hostname)
 	sender, err := GetSender(checkID1)
 	require.NoError(t, err)
@@ -157,9 +158,10 @@ func TestSetHostname(t *testing.T) {
 }
 
 func TestDefaultData(t *testing.T) {
-	resetAggregator()
+	resetTests("hostname")
+	agg := demultiplexerInstance.Aggregator()
+
 	s := &serializer.MockSerializer{}
-	agg := InitAggregator(s, nil, "hostname")
 	start := time.Now()
 
 	s.On("SendServiceChecks", metrics.ServiceChecks{{
@@ -207,9 +209,10 @@ func TestSeriesTooManyTags(t *testing.T) {
 		}
 
 		return func(t *testing.T) {
-			resetAggregator()
+			demux := resetTests("hostname")
 			s := &serializer.MockSerializer{}
-			agg := InitAggregator(s, nil, "hostname")
+			demux.output.sharedSerializer = s
+			agg := demultiplexerInstance.Aggregator()
 			start := time.Now()
 
 			var tags []string
@@ -259,9 +262,10 @@ func TestDistributionsTooManyTags(t *testing.T) {
 		}
 
 		return func(t *testing.T) {
-			resetAggregator()
+			demux := resetTests("hostname")
 			s := &serializer.MockSerializer{}
-			agg := InitAggregator(s, nil, "hostname")
+			demux.output.sharedSerializer = s
+			agg := demultiplexerInstance.Aggregator()
 			start := time.Now()
 
 			var tags []string
@@ -300,9 +304,10 @@ func TestDistributionsTooManyTags(t *testing.T) {
 }
 
 func TestRecurentSeries(t *testing.T) {
-	resetAggregator()
+	demux := resetTests("hostname")
 	s := &serializer.MockSerializer{}
-	agg := NewBufferedAggregator(s, nil, "hostname", DefaultFlushInterval)
+	demux.output.sharedSerializer = s
+	agg := demultiplexerInstance.Aggregator()
 
 	// Add two recurrentSeries
 	AddRecurrentSeries(&metrics.Serie{
