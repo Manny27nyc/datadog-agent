@@ -871,6 +871,9 @@ func walkConfigFilePaths(tempDir, hostname string, confSearchPaths SearchPaths, 
 				defer w.Close()
 
 				if _, err = w.WriteFromFile(src); err != nil {
+					if os.IsNotExist(err) {
+						log.Warnf("the specified path: %s does not exist", filePath)
+					}
 					return err
 				}
 
@@ -899,8 +902,8 @@ func walkConfigFilePaths(tempDir, hostname string, confSearchPaths SearchPaths, 
 	return nil
 }
 
-func newRedactingWriter(f string, p os.FileMode, buffered bool) (*RedactingWriter, error) {
-	w, err := NewRedactingWriter(f, os.ModePerm, true)
+func newRedactingWriter(f string, p os.FileMode, buffered bool) (*scrubber.RedactingWriter, error) {
+	w, err := scrubber.NewRedactingWriter(f, os.ModePerm, true)
 	if err != nil {
 		return nil, err
 	}
