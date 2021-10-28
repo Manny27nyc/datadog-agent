@@ -138,7 +138,8 @@ type inodeDiscarder struct {
 	Padding uint32
 }
 
-type inodeDiscarders struct {
+// InodeDiscarders is used to issue eRPC discarder requests
+type InodeDiscarders struct {
 	*lib.Map
 	erpc           *ERPC
 	revisions      *lib.Map
@@ -147,13 +148,13 @@ type inodeDiscarders struct {
 	regexCache     *simplelru.LRU
 }
 
-func newInodeDiscarders(inodesMap, revisionsMap *lib.Map, erpc *ERPC, dentryResolver *DentryResolver) (*inodeDiscarders, error) {
+func newInodeDiscarders(inodesMap, revisionsMap *lib.Map, erpc *ERPC, dentryResolver *DentryResolver) (*InodeDiscarders, error) {
 	regexCache, err := simplelru.NewLRU(64, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &inodeDiscarders{
+	return &InodeDiscarders{
 		Map:            inodesMap,
 		erpc:           erpc,
 		revisions:      revisionsMap,
@@ -162,7 +163,7 @@ func newInodeDiscarders(inodesMap, revisionsMap *lib.Map, erpc *ERPC, dentryReso
 	}, nil
 }
 
-func (id *inodeDiscarders) discardInode(eventType model.EventType, mountID uint32, inode uint64, isLeaf bool) error {
+func (id *InodeDiscarders) discardInode(eventType model.EventType, mountID uint32, inode uint64, isLeaf bool) error {
 	req := ERPCRequest{
 		OP: DiscardInodeOp,
 	}
@@ -180,12 +181,24 @@ func (id *inodeDiscarders) discardInode(eventType model.EventType, mountID uint3
 	return id.erpc.Request(&req)
 }
 
-func (id *inodeDiscarders) setRevision(mountID uint32, revision uint32) {
+// ExpireInodeDiscarder sends an eRPC request to expire a discarder
+func (id *InodeDiscarders) ExpireInodeDiscarder(mountID uint32, inode uint64) error {
+	req := ERPCRequest{
+		OP: ExpireInodeDiscarderOp,
+	}
+
+	model.ByteOrder.PutUint64(req.Data[0:8], inode)
+	model.ByteOrder.PutUint32(req.Data[8:12], mountID)
+
+	return id.erpc.Request(&req)
+}
+
+func (id *InodeDiscarders) setRevision(mountID uint32, revision uint32) {
 	key := mountID % discarderRevisionSize
 	id.revisionCache[key] = revision
 }
 
-func (id *inodeDiscarders) initRevision(mountEvent *model.MountEvent) {
+func (id *InodeDiscarders) initRevision(mountEvent *model.MountEvent) {
 	var revision uint32
 
 	if mountEvent.IsOverlayFS() {
@@ -304,7 +317,7 @@ func isParentPathDiscarder(rs *rules.RuleSet, regexCache *simplelru.LRU, eventTy
 	return true, nil
 }
 
-func (id *inodeDiscarders) discardParentInode(rs *rules.RuleSet, eventType model.EventType, field eval.Field, filename string, mountID uint32, inode uint64, pathID uint32) (bool, uint32, uint64, error) {
+func (id *InodeDiscarders) discardParentInode(rs *rules.RuleSet, eventType model.EventType, field eval.Field, filename string, mountID uint32, inode uint64, pathID uint32) (bool, uint32, uint64, error) {
 	isDiscarder, err := isParentPathDiscarder(rs, id.regexCache, eventType, field, filename)
 	if !isDiscarder {
 		return false, 0, 0, err

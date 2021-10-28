@@ -70,11 +70,16 @@ type Probe struct {
 	// Approvers / discarders section
 	erpc               *ERPC
 	pidDiscarders      *pidDiscarders
-	inodeDiscarders    *inodeDiscarders
+	inodeDiscarders    *InodeDiscarders
 	flushingDiscarders int64
 	approvers          map[eval.EventType]activeApprovers
 
 	inodeDiscardersCounters map[model.EventType]*int64
+}
+
+// GetInodeDiscarders returns the inode discarders helper
+func (p *Probe) GetInodeDiscarders() *InodeDiscarders {
+	return p.inodeDiscarders
 }
 
 // GetResolvers returns the resolvers of Probe
@@ -737,7 +742,7 @@ func (p *Probe) FlushDiscarders() error {
 	if !atomic.CompareAndSwapInt64(&p.flushingDiscarders, 0, 1) {
 		return errors.New("already flushing discarders")
 	}
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	var discardedInodes []inodeDiscarder
 	var mapValue [256]byte
@@ -765,7 +770,7 @@ func (p *Probe) FlushDiscarders() error {
 		log.Debugf("Flushing discarders")
 
 		for _, inode := range discardedInodes {
-			if err := p.inodeDiscarders.Delete(unsafe.Pointer(&inode)); err != nil {
+			if err := p.GetInodeDiscarders().ExpireInodeDiscarder(inode.PathKey.MountID, inode.PathKey.Inode); err != nil {
 				seclog.Tracef("Failed to flush discarder for inode %d: %s", inode, err)
 			}
 
