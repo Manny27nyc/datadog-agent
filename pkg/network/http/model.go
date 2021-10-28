@@ -73,6 +73,50 @@ func (tx *httpTX) Incomplete() bool {
 	return tx.request_started == 0 || tx.response_status_code == 0
 }
 
+func (tx *httpTX) SrcIPHigh() uint64 {
+	return uint64(tx.tup.saddr_h)
+}
+
+func (tx *httpTX) SrcIPLow() uint64 {
+	return uint64(tx.tup.saddr_l)
+}
+
+func (tx *httpTX) SrcPort() uint16 {
+	return uint16(tx.tup.sport)
+}
+
+func (tx *httpTX) DstIPHigh() uint64 {
+	return uint64(tx.tup.daddr_h)
+}
+
+func (tx *httpTX) DstIPLow() uint64 {
+	return uint64(tx.tup.daddr_l)
+}
+
+func (tx *httpTX) DstPort() uint16 {
+	return uint16(tx.tup.dport)
+}
+
+func (tx *httpTX) Method() Method {
+	return Method(tx.request_method)
+}
+
+func (tx *httpTX) StatusCode() uint16 {
+	return uint16(tx.response_status_code)
+}
+
+func (tx *httpTX) LastSeen() uint64 {
+	return uint64(tx.response_last_seen)
+}
+
+func (tx *httpTX) SetStatusCode(statusCode uint16) {
+	tx.response_status_code = C.ushort(statusCode)
+}
+
+func (tx *httpTX) SetLastSeen(lastSeen uint64) {
+	tx.response_last_seen = C.ulonglong(lastSeen)
+}
+
 // IsDirty detects whether the batch page we're supposed to read from is still
 // valid.  A "dirty" page here means that between the time the
 // http_notification_t message was sent to userspace and the time we performed

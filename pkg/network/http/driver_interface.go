@@ -13,15 +13,15 @@ int size_of_http_transaction_type() {
 */
 import "C"
 import (
-	"unsafe"
 	"fmt"
 	"net"
 	"sync"
 	"syscall"
+	"unsafe"
 
 	"github.com/DataDog/datadog-agent/pkg/network/driver"
-	"golang.org/x/sys/windows"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -157,8 +157,8 @@ func (di *httpDriverInterface) startReadingBuffers() {
 			batchSize := bytesRead / transactionSize
 			transactionBatch := make([]driver.HttpTransactionType, batchSize)
 
-			for i:=uint32(0); i<batchSize; i++ {
-				transaction := (*driver.HttpTransactionType)(unsafe.Pointer(&buf.Data[i * transactionSize]))
+			for i := uint32(0); i < batchSize; i++ {
+				transaction := (*driver.HttpTransactionType)(unsafe.Pointer(&buf.Data[i*transactionSize]))
 				deepCopyTransactionData(&transactionBatch[i], transaction)
 			}
 
@@ -178,26 +178,26 @@ func iocpIsClosedError(err error) bool {
 	}
 	// ERROR_OPERATION_ABORTED or ERROR_ABANDONED_WAIT_0 indicates that the iocp handle was closed
 	// during a call to GetQueuedCompletionStatus.
-	// ERROR_INVALID_HANDLE indicates that the handle was closed prior to the call being made.	
+	// ERROR_INVALID_HANDLE indicates that the handle was closed prior to the call being made.
 	return err == syscall.Errno(windows.ERROR_OPERATION_ABORTED) ||
 		err == syscall.Errno(windows.ERROR_ABANDONED_WAIT_0) ||
-		err == syscall.Errno(windows.ERROR_INVALID_HANDLE);
+		err == syscall.Errno(windows.ERROR_INVALID_HANDLE)
 }
 
 func deepCopyTransactionData(dest, src *driver.HttpTransactionType) {
-	dest.Tup.Saddr    = src.Tup.Saddr
-	dest.Tup.Daddr    = src.Tup.Daddr
-	dest.Tup.Sport    = src.Tup.Sport
-	dest.Tup.Dport    = src.Tup.Dport 
+	dest.Tup.Saddr = src.Tup.Saddr
+	dest.Tup.Daddr = src.Tup.Daddr
+	dest.Tup.Sport = src.Tup.Sport
+	dest.Tup.Dport = src.Tup.Dport
 	dest.Tup.Protocol = src.Tup.Protocol
-	dest.Tup.Family   = src.Tup.Family
-	dest.Tup.Pid      = src.Tup.Pid
+	dest.Tup.Family = src.Tup.Family
+	dest.Tup.Pid = src.Tup.Pid
 
-	dest.RequestStarted     = src.RequestStarted
-	dest.ResponseLastSeen   = src.ResponseLastSeen
-	dest.RequestMethod	    = src.RequestMethod
+	dest.RequestStarted = src.RequestStarted
+	dest.ResponseLastSeen = src.ResponseLastSeen
+	dest.RequestMethod = src.RequestMethod
 	dest.ResponseStatusCode = src.ResponseStatusCode
-    dest.RequestFragment    = src.RequestFragment
+	dest.RequestFragment = src.RequestFragment
 }
 
 func (di *httpDriverInterface) flushPendingTransactions() {

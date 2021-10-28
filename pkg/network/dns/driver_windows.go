@@ -11,8 +11,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pkg/errors"
 	"github.com/DataDog/datadog-agent/pkg/network/driver"
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
 

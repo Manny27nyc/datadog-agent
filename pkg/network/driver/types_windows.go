@@ -167,3 +167,8 @@ type ConnTupleType struct {
 	Pid      uint64
 }
 type HttpMethodType uint32
+
+const (
+	HttpBatchSize  = 0xf
+	HttpBufferSize = 0x19
+)

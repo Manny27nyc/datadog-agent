@@ -8,7 +8,6 @@ import (
 
 	"github.com/DataDog/datadog-agent/pkg/network/config"
 	"github.com/DataDog/datadog-agent/pkg/network/driver"
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 const (
@@ -18,8 +17,11 @@ const (
 // Monitor is responsible for aggregating and emitting metrics based on
 // batches of HTTP transactions received from the driver interface
 type Monitor struct {
-	di *httpDriverInterface
+	di         *httpDriverInterface
+	telemetry  *telemetry
+	statkeeper *httpStatKeeper
 
+	mux         sync.Mutex
 	eventLoopWG sync.WaitGroup
 }
 
@@ -30,12 +32,16 @@ func NewMonitor(c *config.Config) (*Monitor, error) {
 		return nil, err
 	}
 
-	if (uint64(c.MaxTrackedConnections) != defaultMaxTrackedConnections) {
+	if uint64(c.MaxTrackedConnections) != defaultMaxTrackedConnections {
 		di.setMaxFlows(uint64(c.MaxTrackedConnections))
 	}
 
+	telemetry := newTelemetry()
+
 	return &Monitor{
-		di: di,
+		di:         di,
+		telemetry:  telemetry,
+		statkeeper: newHTTPStatkeeper(c.MaxHTTPStatsBuffered, telemetry),
 	}, nil
 }
 
@@ -72,8 +78,17 @@ func (m *Monitor) process(transactionBatch []driver.HttpTransactionType) {
 		return
 	}
 
-	// TODO
-	log.Infof("batch of %d transactions processed", len(transactionBatch))
+	transactions := make([]httpTX, len(transactionBatch))
+	for i := range transactionBatch {
+		transactions[i] = httpTX(transactionBatch[i])
+	}
+
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	m.telemetry.aggregate(transactions, nil)
+
+	m.statkeeper.Process(transactions)
 }
 
 // GetHTTPStats returns a map of HTTP stats stored in the following format:
@@ -83,9 +98,13 @@ func (m *Monitor) GetHTTPStats() map[Key]RequestStats {
 		return nil
 	}
 
-	// TODO
-	log.Infof("http stats fetched")
-	return map[Key]RequestStats{}
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	delta := m.telemetry.reset()
+	delta.report()
+
+	return m.statkeeper.GetAndResetAllStats()
 }
 
 // Stop HTTP monitoring
