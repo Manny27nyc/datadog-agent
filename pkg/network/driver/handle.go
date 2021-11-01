@@ -12,13 +12,8 @@ import (
 )
 
 const (
-	// Each type of handle has its own framework file object. These objects must live within the
-	// ddnpm device's namespace, so their paths must be prepended by '\\.\ddnpm\'.
-	// See https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/controlling-device-namespace-access
-	driverStatsHandlePathName = `\\.\ddnpm\driverstatshandle`
-	flowHandlePathName        = `\\.\ddnpm\flowstatshandle`
-	transportHandlePathName   = `\\.\ddnpm\transporthandle`
-	httpHandlePathName        = `\\.\ddnpm\httphandle`
+	// deviceName identifies the name and location of the windows driver
+	deviceName = `\\.\ddnpm`
 )
 
 var (
@@ -52,6 +47,13 @@ const (
 	HTTPHandle HandleType = "HTTP"
 )
 
+// handleTypeToPathName maps the handle type to the path name that the driver is expecting.
+var handleTypeToPathName = map[HandleType]string{
+	FlowHandle:  "flowstatshandle",
+	DataHandle:  "transporthandle",
+	StatsHandle: "driverstatshandle", // for now just use that; any path will do
+}
+
 // Handle struct stores the windows handle for the driver as well as information about what type of filter is set
 type Handle struct {
 	windows.Handle
@@ -63,21 +65,15 @@ type Handle struct {
 
 // NewHandle creates a new windows handle attached to the driver
 func NewHandle(flags uint32, handleType HandleType) (*Handle, error) {
-	var handlePath string
-	switch handleType {
-	case FlowHandle:
-		handlePath = flowHandlePathName
-	case DataHandle:
-		handlePath = transportHandlePathName
-	case StatsHandle:
-		handlePath = driverStatsHandlePathName
-	case HTTPHandle:
-		handlePath = httpHandlePathName
-	default:
-		return nil, fmt.Errorf("unrecognized handle type: %v", handleType)
+	// Each type of handle has its own framework file object. These objects must live within the
+	// ddnpm device's namespace, so their paths must be prepended by the device name.
+	// See https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/controlling-device-namespace-access
+	pathext, ok := handleTypeToPathName[handleType]
+	if !ok {
+		return nil, fmt.Errorf("Unknown Handle type %v", handleType)
 	}
-
-	p, err := windows.UTF16PtrFromString(handlePath)
+	fullpath := deviceName + `\` + pathext
+	p, err := windows.UTF16PtrFromString(fullpath)
 	if err != nil {
 		return nil, err
 	}
