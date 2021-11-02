@@ -223,10 +223,6 @@ func (tkn *SQLTokenizer) Scan() (TokenKind, []byte) {
 				tkn.advance()
 				return ColonCast, []byte("::")
 			}
-			if unicode.IsSpace(tkn.lastChar) {
-				tkn.advance()
-				return TokenKind(ch), tkn.bytes()
-			}
 			if tkn.lastChar != '=' {
 				return tkn.scanBindVar()
 			}
@@ -563,7 +559,7 @@ func (tkn *SQLTokenizer) scanBindVar() (TokenKind, []byte) {
 		token = ListArg
 		tkn.advance()
 	}
-	if !isLetter(tkn.lastChar) {
+	if !isLetter(tkn.lastChar) && !unicode.IsSpace(tkn.lastChar) {
 		tkn.setErr(`bind variables should start with letters, got "%c" (%d)`, tkn.lastChar, tkn.lastChar)
 		return LexError, tkn.bytes()
 	}

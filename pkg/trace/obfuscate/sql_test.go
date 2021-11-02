@@ -87,16 +87,16 @@ func TestCanObfuscateAutoVacuum(t *testing.T) {
 	assert := assert.New(t)
 	for _, tt := range []struct{ in, out string }{
 		{
-			in:  "autovacuum: VACUUM ANALYZE public.monitor",
-			out: "autovacuum :  VACUUM ANALYZE public.monitor",
+			in:  "autovacuum: VACUUM ANALYZE fake.table",
+			out: "autovacuum : VACUUM ANALYZE fake.table",
 		},
 		{
-			in:  "autovacuum: VACUUM ANALYZE public.monitor_downtime",
-			out: "autovacuum :  VACUUM ANALYZE public.monitor_downtime",
+			in:  "autovacuum: VACUUM ANALYZE fake.table_downtime",
+			out: "autovacuum : VACUUM ANALYZE fake.table_downtime",
 		},
 		{
-			in:  "autovacuum: VACUUM public.dim_metric (to prevent wraparound)",
-			out: "autovacuum :  VACUUM public.dim_metric ( to prevent wraparound )",
+			in:  "autovacuum: VACUUM fake.big_table (to prevent wraparound)",
+			out: "autovacuum : VACUUM fake.big_table ( to prevent wraparound )",
 		},
 	} {
 		t.Run("", func(t *testing.T) {
